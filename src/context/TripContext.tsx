@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode } from "react";
-import { TripDetails, Bus, Route } from "@/src/types";
+import { TripDetails, Bus, Route, Booking } from "@/src/types";
 
 interface TripContextType {
   tripDetails: TripDetails | null;
@@ -12,6 +12,8 @@ interface TripContextType {
   toggleSeat: (seatNumber: number) => void;
   selectedRoute: Route | null;
   setSelectedRoute: (route: Route) => void;
+  currentBooking: Booking | null;
+  setCurrentBooking: (booking: Booking) => void;
 }
 
 const TripContext = createContext<TripContextType | undefined>(undefined);
@@ -21,6 +23,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+  const [currentBooking, setCurrentBooking] = useState<Booking | null>(null);
 
   function toggleSeat(seatNumber: number) {
     setSelectedSeats((prev) =>
@@ -41,6 +44,8 @@ export function TripProvider({ children }: { children: ReactNode }) {
         toggleSeat,
         selectedRoute,
         setSelectedRoute,
+        currentBooking,
+        setCurrentBooking,
       }}
     >
       {children}

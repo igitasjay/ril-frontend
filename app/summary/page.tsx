@@ -1,12 +1,21 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTrip } from "@/src/context/TripContext";
+import { createBooking } from "@/src/services/api";
 
 export default function Summary() {
   const router = useRouter();
-  const { tripDetails, selectedBus, selectedRoute, selectedSeats } = useTrip();
+  const [error, setError] = useState("");
+  const {
+    tripDetails,
+    selectedBus,
+    selectedRoute,
+    selectedSeats,
+    setCurrentBooking,
+  } = useTrip();
+  const [passengerName, setPassengerName] = useState("");
 
   useEffect(() => {
     if (
@@ -26,6 +35,13 @@ export default function Summary() {
   return (
     <main className="max-w-md mx-auto p-6">
       <h1 className="text-xl font-semibold mb-4">Booking Summary</h1>
+
+      <input
+        value={passengerName}
+        onChange={(e) => setPassengerName(e.target.value)}
+        placeholder="Passenger name"
+        className="border rounded px-3 py-2 w-full mb-4"
+      />
 
       <div className="border rounded p-4 mb-4 space-y-2">
         <div className="flex justify-between">
@@ -67,9 +83,30 @@ export default function Summary() {
         </div>
       </div>
 
+      {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+
       <button
         type="button"
-        onClick={() => console.log("proceed to payment")}
+        onClick={async () => {
+          if (!passengerName) {
+            setError("Enter passenger's name");
+            return;
+          }
+
+          try {
+            const booking = await createBooking(
+              selectedBus.id,
+              selectedRoute.id,
+              selectedSeats,
+              passengerName,
+              totalPrice,
+            );
+
+            setCurrentBooking(booking);
+          } catch (error) {
+            setError(`Error: ${error}`);
+          }
+        }}
         className="w-full bg-black text-white p-3 rounded font-semibold"
       >
         Proceed to Payment
