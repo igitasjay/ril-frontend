@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Bus } from "../types";
+import { Bus, Route } from "../types";
 
 const API_BASE_URL = "http://localhost:4000";
 
@@ -12,4 +12,9 @@ export async function getAvailability(
   });
 
   return response.data.availableroutes;
+}
+
+export async function getRoutes(): Promise<Route[]> {
+  const response = await axios.get(`${API_BASE_URL}/routes`);
+  return response.data;
 }

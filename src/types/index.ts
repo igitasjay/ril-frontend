@@ -14,7 +14,7 @@ export interface Seat {
 export interface Bus {
   id: string;
   plateNumber: string;
-  routedId: string;
+  routeId: string;
   totalSeats: string;
   seats: Seat[];
 }

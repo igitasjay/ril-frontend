@@ -3,14 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTrip } from "@/src/context/TripContext";
-import { getAvailability } from "@/src/services/api";
-import { Bus } from "@/src/types";
+import { getAvailability, getRoutes } from "@/src/services/api";
+import { Bus, Route } from "@/src/types";
 
 export default function SelectBus() {
   const router = useRouter();
-  const { tripDetails, setSelectedBus } = useTrip();
+  const { tripDetails, setSelectedBus, setSelectedRoute } = useTrip();
 
   const [buses, setBuses] = useState<Bus[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -21,20 +22,29 @@ export default function SelectBus() {
     }
 
     async function fetchBuses() {
+      const results = await getAvailability(
+        tripDetails?.from ?? "",
+        tripDetails?.to ?? "",
+      );
+      setBuses(results);
+    }
+
+    async function fetchRoutes() {
+      const result = await getRoutes();
+      setRoutes(result);
+    }
+
+    async function fetchData() {
       try {
-        const results = await getAvailability(
-          tripDetails?.from ?? "",
-          tripDetails?.to ?? "",
-        );
-        setBuses(results);
+        await Promise.all([fetchBuses(), fetchRoutes()]);
       } catch (error) {
-        setError("Could not load buses. Please try again.");
+        setError(`One of the requests failed: ${error}`);
       } finally {
         setLoading(false);
       }
     }
 
-    fetchBuses();
+    fetchData();
   }, []);
 
   if (loading) return <p className="p-6">Loading buses...</p>;
@@ -52,7 +62,9 @@ export default function SelectBus() {
             type="button"
             className="w-full text-left"
             onClick={() => {
+              const matchingroute = routes.find((r) => r.id === bus.routeId);
               setSelectedBus(bus);
+              if (matchingroute) setSelectedRoute(matchingroute);
               router.push("/select-seat");
             }}
           >
