@@ -35,3 +35,10 @@ export async function createBooking(
   });
   return response.data.data;
 }
+
+export async function confirmBooking(bookingId: string): Promise<Booking> {
+  const response = await axios.post(`${API_BASE_URL}/confirm-booking`, {
+    bookingId,
+  });
+  return response.data.data;
+}

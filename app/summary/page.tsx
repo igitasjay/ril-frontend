@@ -2,12 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import { useTrip } from "@/src/context/TripContext";
-import { createBooking } from "@/src/services/api";
+import { confirmBooking, createBooking } from "@/src/services/api";
+import { Booking } from "@/src/types";
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
 export default function Summary() {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
   const {
     tripDetails,
     selectedBus,
@@ -16,6 +23,7 @@ export default function Summary() {
     setCurrentBooking,
   } = useTrip();
   const [passengerName, setPassengerName] = useState("");
+  const [emailAddress, setEmailAddress] = useState("");
 
   useEffect(() => {
     if (
@@ -32,6 +40,46 @@ export default function Summary() {
 
   const totalPrice = selectedRoute.basePrice * selectedSeats.length;
 
+  async function handlePaymentSuccess(bookingId: string) {
+    try {
+      const confirmed = await confirmBooking(bookingId);
+      setCurrentBooking(confirmed);
+      router.push("/confirmation");
+    } catch (err) {
+      setError("Payment succeeded but confirmation failed. Contact support.");
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  function payWithPaystack(booking: Booking) {
+    const paystack = (window as any).PaystackPop;
+
+    if (!paystack || typeof paystack.setup !== "function") {
+      setError(
+        "Payment system is still loading. Please wait a moment and try again.",
+      );
+      setIsProcessing(false);
+      return;
+    }
+
+    paystack
+      .setup({
+        key: process.env.NEXT_PUBLIC_PAYSTACK_KEY,
+        email: emailAddress,
+        amount: totalPrice * 100,
+        ref: booking.id,
+        callback: (response: any) => {
+          handlePaymentSuccess(booking.id);
+        },
+        onClose: () => {
+          setError("Payment was cancelled");
+          setIsProcessing(false);
+        },
+      })
+      .openIframe();
+  }
+
   return (
     <main className="max-w-md mx-auto p-6">
       <h1 className="text-xl font-semibold mb-4">Booking Summary</h1>
@@ -42,6 +90,15 @@ export default function Summary() {
         placeholder="Passenger name"
         className="border rounded px-3 py-2 w-full mb-4"
       />
+      <input
+        value={emailAddress}
+        onChange={(e) => setEmailAddress(e.target.value)}
+        placeholder="Email Address"
+        className="border rounded px-3 py-2 w-full mb-1"
+      />
+      <p className="text-gray-300 text-xs mb-4">
+        We use this email address to mail you a receipt of your transaction
+      </p>
 
       <div className="border rounded p-4 mb-4 space-y-2">
         <div className="flex justify-between">
@@ -87,11 +144,20 @@ export default function Summary() {
 
       <button
         type="button"
+        disabled={isProcessing}
         onClick={async () => {
-          if (!passengerName) {
-            setError("Enter passenger's name");
+          if (!passengerName || !emailAddress) {
+            setError("Complete the form");
             return;
           }
+
+          if (!isValidEmail(emailAddress)) {
+            setError("Enter a valid email address");
+            return;
+          }
+
+          setError("");
+          setIsProcessing(true);
 
           try {
             const booking = await createBooking(
@@ -101,15 +167,34 @@ export default function Summary() {
               passengerName,
               totalPrice,
             );
-
             setCurrentBooking(booking);
+
+            try {
+              payWithPaystack(booking);
+            } catch (paymentError) {
+              console.error("Paystack setup failed:", paymentError);
+              setError(
+                "Booking created, but payment could not start. Contact support with reference " +
+                  booking.id,
+              );
+              setIsProcessing(false);
+            }
           } catch (error) {
-            setError(`Error: ${error}`);
+            if (axios.isAxiosError(error) && error.response?.status === 409) {
+              setError(
+                "One of your selected seats was just booked by someone else. Please go back and choose a different seat.",
+              );
+            } else {
+              setError(
+                "Something went wrong while creating your booking. Please try again.",
+              );
+            }
+            setIsProcessing(false);
           }
         }}
-        className="w-full bg-black text-white p-3 rounded font-semibold"
+        className="w-full bg-black text-white p-3 rounded font-semibold disabled:bg-gray-400"
       >
-        Proceed to Payment
+        {isProcessing ? "Processing..." : "Proceed to Payment"}
       </button>
     </main>
   );
